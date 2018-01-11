@@ -1,0 +1,27 @@
+{
+    "HAPI": "1.0",
+    "createdAt": "now",
+    "modificationDate": "lastday",
+    "parameters": [
+        {
+            "length": 24,
+            "name": "Time",
+            "type": "isotime",
+            "fill": null,            
+            "units": "UTC"
+        },
+        {
+            "description": "temperature of garden house pool",
+            "label": "temperature",
+            "fill": "-1e31",
+            "name": "Temperature",
+            "type": "double",
+            "units": "deg F"
+        }
+    ],
+    "startDate": "2012-01-09T00:00Z",
+    "stopDate": "lasthour",
+    "sampleStartDate": "lastday-P1D",
+    "sampleStopDate": "lastday",
+    "cadence": "PT1M"
+}
