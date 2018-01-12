@@ -1,10 +1,10 @@
 # server-python
 simple server written in Python, to support Raspberry Pi
 
-= Introduction =
+# Introduction 
 This server is intended to be used when Apache with CGI-BIN scripts would be overkill for the simple task of implementing the HAPI interface.  For example, a Raspberry PI (https://www.raspberrypi.org/) collects temperature sensor data every minute and logs the data to files, and this code implements a HAPI server using only Python.  
 
-= Setup =
+# Setup 
 Python 2.7 provides a web server in its BaseHTTPServer module.  This is started, and the BaseHTTPServer.BaseHTTPRequestHandler do_GET method handles the different request types (catalog, info, data, etc).  The single Python file "hapi-server.py" is run to start the server.  
 
 The file must be modified for the particular installation.  Four configuration variables are found at the top of the file.  Suppose we wish to run the server at "http://192.168.0.46:9000/hapi/":
