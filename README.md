@@ -21,4 +21,9 @@ A few folders and data files must be created on the device.  Supposing HAPI_HOME
 * data/10.CF3744000800/2018/10.CF3744000800.20180110.csv  a granule of the data set.
 * data/10.CF3744000800/2018/10.CF3744000800.20180111.csv  another granule of the data set.
 
-Note these are available in the zip file ...
+Note these are available in the zip file hapi_home.zip.  This can be unzipped and used to test the server.
+
+# Requirements
+* There was a module needed to run on my Pi, because it didn't have dateutil.parser.  This was fixed with:
+    sudo apt-get install python-pip
+    sudo pip install python-dateutil
