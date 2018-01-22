@@ -20,6 +20,7 @@ SERVER_HOME= '/hapi'  # Note no slash
 # * each data file must have time as $Y-$m-$dT$H:$M:$D
 
 def do_data_csv( id, timemin, timemax, parameters, s ):
+    print 'parameters=', parameters
     ff= HAPI_HOME + 'data/' + id + '/'
     filemin= dateutil.parser.parse( timemin ).strftime('%Y%m%d')
     filemax= dateutil.parser.parse( timemax ).strftime('%Y%m%d')
@@ -27,6 +28,10 @@ def do_data_csv( id, timemin, timemax, parameters, s ):
     timemax= dateutil.parser.parse( timemax ).strftime('%Y-%m-%dT%H:%M:%S')
     yrmin= int( timemin[0:4] )
     yrmax= int( timemax[0:4] )
+    if ( parameters!=None ):
+        mm= do_parameters_map( id, parameters )
+    else:
+        mm= None
     for yr in range(yrmin,yrmax+1):
         ffyr= ff + '%04d' % yr
         ymdmin= timemin[0:8]
@@ -39,7 +44,17 @@ def do_data_csv( id, timemin, timemax, parameters, s ):
                   for rec in open( ffyr + '/' + file ):
                       ydmhms= rec[0:19]
                       if ( timemin<=ydmhms and ydmhms<timemax ):
-                          s.wfile.write(rec)
+                          if ( mm!=None ):
+                              ss= rec.split(',')
+                              comma= False
+                              for i in mm:
+                                 if comma: 
+                                    s.wfile.write(',')
+                                 s.wfile.write(ss[i])
+                                 comma=True
+                              rec1= ','.join(ss)
+                          else:
+                              s.wfile.write(rec)
 
 def do_info_macros( line ):
     ss= line.split('"now"')
@@ -67,6 +82,19 @@ def do_info_macros( line ):
     
 def sendException( w, msg ):
     w.write( '{ "HAPI": "2.0", "status": { "code": 1406, "message": "error" } }' )
+
+def do_get_parameters( id ):
+    if ( id=='10.CF3744000800' ):
+        return [ 'Time','Temperature' ]
+    elif ( id=='cputemp' ):
+        return [ 'Time', 'GPUTemperature', 'CPUTemperature' ]
+    else:
+        raise Except("this is not implemented!")
+
+def do_parameters_map( id, parameters ):
+    "TODO: this is not implemented!"
+    pp= do_get_parameters(id)
+    return map( pp.index, parameters )
 
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -140,7 +168,13 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             id= query['id'][0]
             timemin= query['time.min'][0]
             timemax= query['time.max'][0]
-            do_data_csv( id, timemin, timemax, None, s )
+            print 'query=', query
+            if query.has_key('parameters'):
+                parameters= query['parameters'][0] 
+                parameters= parameters.split(',')
+            else:
+                parameters= None
+            do_data_csv( id, timemin, timemax, parameters, s )
         elif ( path=='' ):
             s.wfile.write("<html><head><title>Python HAPI Server</title></head>")
             s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.</p>")
@@ -156,6 +190,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
                 u= "%s://%s:%d/hapi/data?id=%s&time.min=%s&time.max=%s" % ( 'http', HOST_NAME, PORT_NUMBER, f[n:-5], timemin, timemax )
                 s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
+            s.wfile.write("<a href=http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature>hack</a>" % ( HOST_NAME, PORT_NUMBER ) )
             s.wfile.write("</body></html>")
         else:
             for l in open( HAPI_HOME + 'error.json' ):
