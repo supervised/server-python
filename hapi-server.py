@@ -4,12 +4,14 @@ import urlparse
 import glob
 import os
 import dateutil.parser
+import subprocess
 
-HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
+HOST_NAME = '192.168.0.46' # !!!REMEMBER TO CHANGE THIS!!!
+#HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 9000 # Maybe set this to 9000.
 
-HAPI_HOME= '/home/jbf/hapi_python/'
-SERVER_HOME= '/hapi/'
+HAPI_HOME= '/home/jbf/hapi/'
+SERVER_HOME= '/hapi'  # Note no slash
 
 # Configuration requirements
 # * capabilities and catalog responses must be formatted as JSON in SERVER_HOME.
@@ -62,32 +64,53 @@ def do_info_macros( line ):
        return ss[0] + '"' + midnight.strftime('%Y-%m-%dT%H:%M:%S')+ '"' + ss[1]
     return line
     
+def sendException( w, msg ):
+    w.write( '{ "HAPI": "2.0", "status": { "code": 1406, "message": "error" } }' )
 
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        return
+
     def do_HEAD(s):
         s.send_response(200)
         s.send_header("Content-type", "application/json")
         s.end_headers()
     def do_GET(s):
         pp= urlparse.urlparse(s.path)
-        if ( pp.path.endswith('capabilities') ):                
+
+        path= pp.path
+
+        while ( path.endswith('/') ):
+            path= path[:-1]
+
+        if ( path.startswith(SERVER_HOME) ):
+            path= path[len(SERVER_HOME):]
+
+        while ( path.startswith('/') ):
+            path= path[1:]
+
+        print 'path=', path 
+
+        if ( path=='capabilities' ):                
            s.send_response(200)
            s.send_header("Content-type", "application/json")
-        elif ( pp.path.endswith('catalog') ):
+        elif ( path=='catalog' ):
            s.send_response(200)
            s.send_header("Content-type", "application/json")
-        elif ( pp.path.endswith('info') ):
+        elif ( path=='info' ):
            s.send_response(200)
            s.send_header("Content-type", "application/json")
-        else:
+        elif ( path=='data' ):
+           s.send_response(200)
+           s.send_header("Content-type", "text/csv")
+        elif ( path=='' ):
            s.send_response(200)
            s.send_header("Content-type", "text/html")
-        s.end_headers()
-
-        if ( pp.path.startswith(SERVER_HOME) ):
-            path= pp.path[len(SERVER_HOME):]
         else:
-            path= pp.path
+           s.send_response(404)
+           s.send_header("Content-type", "application/json")
+
+        s.end_headers()
 
         if ( path=='capabilities' ):
             for l in open( HAPI_HOME + 'capabilities.json' ):
@@ -98,20 +121,38 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         elif ( path=='info' ):
             query= urlparse.parse_qs( pp.query )
             id= query['id'][0]
-            for l in open( HAPI_HOME + 'info/' + id + '.json' ):
-                l= do_info_macros(l)
-                s.wfile.write(l)
+            try:
+                for l in open( HAPI_HOME + 'info/' + id + '.json' ):
+                    l= do_info_macros(l)
+                    s.wfile.write(l)
+            except:
+                sendException(s.wfile,'unable to find '+id) 
         elif ( path=='data' ):
             query= urlparse.parse_qs( pp.query )
             id= query['id'][0]
             timemin= query['time.min'][0]
             timemax= query['time.max'][0]
             do_data_csv( id, timemin, timemax, None, s )
-        else:
+        elif ( path=='' ):
             s.wfile.write("<html><head><title>Python HAPI Server</title></head>")
-            s.wfile.write("<body><p>This is a simple Python-based HAPI server, to be run on a Raspberry PI.</p>")
-            s.wfile.write("<p>You accessed path: %s</p>" % s.path)
+            s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.</p>")
+            s.wfile.write("<p>Example requests:</p>")
+            u= "%s://%s:%d/hapi/catalog" % ( 'http', HOST_NAME, PORT_NUMBER )
+            s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
+            ff= glob.glob( HAPI_HOME + 'info/*.json' )
+            n= len( HAPI_HOME + 'info/' )
+            timemin= '2018-01-19T00:00Z'
+            timemax= '2018-01-20T00:00Z'
+            for f in ff:
+                u= "%s://%s:%d/hapi/info?id=%s" % ( 'http', HOST_NAME, PORT_NUMBER, f[n:-5] )
+                s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
+                u= "%s://%s:%d/hapi/data?id=%s&time.min=%s&time.max=%s" % ( 'http', HOST_NAME, PORT_NUMBER, f[n:-5], timemin, timemax )
+                s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
             s.wfile.write("</body></html>")
+        else:
+            for l in open( HAPI_HOME + 'error.json' ):
+                s.wfile.write(l)
+
 
 if __name__ == '__main__':
     server_class = BaseHTTPServer.HTTPServer
@@ -123,3 +164,4 @@ if __name__ == '__main__':
         pass
     httpd.server_close()
     print time.asctime(), "Server Stops - %s:%s" % (HOST_NAME, PORT_NUMBER)
+
