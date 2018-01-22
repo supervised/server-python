@@ -3,6 +3,7 @@ import BaseHTTPServer
 import urlparse
 import glob
 import os
+import os.path
 import dateutil.parser
 import subprocess
 
@@ -44,24 +45,24 @@ def do_info_macros( line ):
     ss= line.split('"now"')
     if ( len(ss)==2 ):
        import time
-       return ss[0] + '"' + time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime())+ '"' + ss[1]
+       return ss[0] + '"' + time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())+ '"' + ss[1]
     ss= line.split('"lastday-P1D"')
     if ( len(ss)==2 ):
        from datetime import datetime, date, time
        midnight = datetime.combine(date.today(), time.min)
        from datetime import timedelta
        yesterday_midnight = midnight - timedelta(days=1)
-       return ss[0] + '"' + yesterday_midnight.strftime('%Y-%m-%dT%H:%M:%S')+ '"' + ss[1]
+       return ss[0] + '"' + yesterday_midnight.strftime('%Y-%m-%dT%H:%M:%SZ')+ '"' + ss[1]
     ss= line.split('"lastday"')
     if ( len(ss)==2 ):
        from datetime import datetime, date, time
        midnight = datetime.combine(date.today(), time.min) # TODO: bug lastday is probably based on local time.
-       return ss[0] + '"' + midnight.strftime('%Y-%m-%dT%H:%M:%S')+ '"' + ss[1]
+       return ss[0] + '"' + midnight.strftime('%Y-%m-%dT%H:%M:%SZ')+ '"' + ss[1]
     ss= line.split('"lasthour"')
     if ( len(ss)==2 ):
        from datetime import datetime, date, time
        midnight = datetime.combine(date.today(), time.min)  # TODO: bug lasthour is implemented as lastday
-       return ss[0] + '"' + midnight.strftime('%Y-%m-%dT%H:%M:%S')+ '"' + ss[1]
+       return ss[0] + '"' + midnight.strftime('%Y-%m-%dT%H:%M:%SZ')+ '"' + ss[1]
     return line
     
 def sendException( w, msg ):
@@ -89,7 +90,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         while ( path.startswith('/') ):
             path= path[1:]
 
-        print 'path=', path 
+        query= urlparse.parse_qs( pp.query )
 
         if ( path=='capabilities' ):                
            s.send_response(200)
@@ -98,10 +99,19 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
            s.send_response(200)
            s.send_header("Content-type", "application/json")
         elif ( path=='info' ):
-           s.send_response(200)
+           id= query['id'][0]
+           if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
+               s.send_response(200)
+           else:
+               s.send_response(404)
            s.send_header("Content-type", "application/json")
         elif ( path=='data' ):
-           s.send_response(200)
+           id= query['id'][0]
+           if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
+               s.send_response(200)
+               s.send_header("Content-type", "text/csv")
+           else:
+               s.send_response(404)
            s.send_header("Content-type", "text/csv")
         elif ( path=='' ):
            s.send_response(200)
@@ -119,7 +129,6 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             for l in open( HAPI_HOME + 'catalog.json' ):
                 s.wfile.write(l)
         elif ( path=='info' ):
-            query= urlparse.parse_qs( pp.query )
             id= query['id'][0]
             try:
                 for l in open( HAPI_HOME + 'info/' + id + '.json' ):
@@ -128,7 +137,6 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             except:
                 sendException(s.wfile,'unable to find '+id) 
         elif ( path=='data' ):
-            query= urlparse.parse_qs( pp.query )
             id= query['id'][0]
             timemin= query['time.min'][0]
             timemax= query['time.max'][0]
