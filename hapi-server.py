@@ -207,8 +207,8 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
                 u= "%s://%s:%d/hapi/data?id=%s&time.min=%s&time.max=%s" % ( 'http', HOST_NAME, PORT_NUMBER, f[n:-5], timemin, timemax )
                 s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
-            s.wfile.write("<a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>hack</a>" % ( HOST_NAME, PORT_NUMBER ) )
-            s.wfile.write("<a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>" % ( HOST_NAME, PORT_NUMBER ) )
+            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>subset of parameters</a>" % ( HOST_NAME, PORT_NUMBER ) )
+            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>" % ( HOST_NAME, PORT_NUMBER ) )
             s.wfile.write("</body></html>")
         else:
             for l in open( HAPI_HOME + 'error.json' ):
