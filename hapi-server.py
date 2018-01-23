@@ -19,7 +19,21 @@ SERVER_HOME= '/hapi'  # Note no slash
 # * info responses are in SERVER_HOME/info.
 # * responses can have templates like "lasthour" to mean the last hour boundary, and "lastday-P1D" to mean the last midnight minus one day.
 # * data files must be in daily csv files, SERVER_HOME/data/<id>/$Y/<id>.$Y$m$d.csv
-# * each data file must have time as $Y-$m-$dT$H:$M:$D
+# * each data file must have time as $Y-$m-$dT$H:$M:$SZ
+# * embedded info response, preceding the CSV response, is not yet supported.
+
+def do_write_info( s, id, parameters, prefix ):
+    try:    
+        #infoJson= open( HAPI_HOME + 'info/' + id + '.json' ).read()
+        #import json
+        #data= json.loads(infoJson)
+        #print data
+        for l in open( HAPI_HOME + 'info/' + id + '.json' ):
+            l= do_info_macros(l)
+            if ( prefix!=None ): s.wfile.write(prefix)
+            s.wfile.write(l)
+    except:
+        sendException(s.wfile,'unable to find '+id) 
 
 def do_data_csv( id, timemin, timemax, parameters, s ):
     ff= HAPI_HOME + 'data/' + id + '/'
@@ -164,12 +178,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write(l)
         elif ( path=='info' ):
             id= query['id'][0]
-            try:
-                for l in open( HAPI_HOME + 'info/' + id + '.json' ):
-                    l= do_info_macros(l)
-                    s.wfile.write(l)
-            except:
-                sendException(s.wfile,'unable to find '+id) 
+            do_write_info( s, id, parameters, None )
         elif ( path=='data' ):
             id= query['id'][0]
             timemin= query['time.min'][0]
@@ -179,6 +188,9 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 parameters= parameters.split(',')
             else:
                 parameters= None
+            if query.has_key('include'):
+                if query['include'][0]=='header':
+                    do_write_info( s, id, parameters, '#' )
             do_data_csv( id, timemin, timemax, parameters, s )
         elif ( path=='' ):
             s.wfile.write("<html><head><title>Python HAPI Server</title></head>")
@@ -195,7 +207,8 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
                 u= "%s://%s:%d/hapi/data?id=%s&time.min=%s&time.max=%s" % ( 'http', HOST_NAME, PORT_NUMBER, f[n:-5], timemin, timemax )
                 s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
-            s.wfile.write("<a href=http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature>hack</a>" % ( HOST_NAME, PORT_NUMBER ) )
+            s.wfile.write("<a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>hack</a>" % ( HOST_NAME, PORT_NUMBER ) )
+            s.wfile.write("<a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>" % ( HOST_NAME, PORT_NUMBER ) )
             s.wfile.write("</body></html>")
         else:
             for l in open( HAPI_HOME + 'error.json' ):
