@@ -16,11 +16,12 @@ SERVER_HOME= '/hapi'  # Note no slash
 
 # Configuration requirements
 # * capabilities and catalog responses must be formatted as JSON in SERVER_HOME.
+# * info responses are in SERVER_HOME/info.
+# * responses can have templates like "lasthour" to mean the last hour boundary, and "lastday-P1D" to mean the last midnight minus one day.
 # * data files must be in daily csv files, SERVER_HOME/data/<id>/$Y/<id>.$Y$m$d.csv
 # * each data file must have time as $Y-$m-$dT$H:$M:$D
 
 def do_data_csv( id, timemin, timemax, parameters, s ):
-    print 'parameters=', parameters
     ff= HAPI_HOME + 'data/' + id + '/'
     filemin= dateutil.parser.parse( timemin ).strftime('%Y%m%d')
     filemax= dateutil.parser.parse( timemax ).strftime('%Y%m%d')
@@ -52,7 +53,8 @@ def do_data_csv( id, timemin, timemax, parameters, s ):
                                     s.wfile.write(',')
                                  s.wfile.write(ss[i])
                                  comma=True
-                              rec1= ','.join(ss)
+                              if mm[-1]<(len(ss)-1):
+                                 s.wfile.write('\n')
                           else:
                               s.wfile.write(rec)
 
@@ -94,7 +96,10 @@ def do_get_parameters( id ):
 def do_parameters_map( id, parameters ):
     "TODO: this is not implemented!"
     pp= do_get_parameters(id)
-    return map( pp.index, parameters )
+    result= map( pp.index, parameters )
+    if ( result[0]!=0 ):
+        result.insert(0,0)
+    return result
 
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -104,6 +109,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         s.send_response(200)
         s.send_header("Content-type", "application/json")
         s.end_headers()
+
     def do_GET(s):
         pp= urlparse.urlparse(s.path)
 
@@ -168,7 +174,6 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             id= query['id'][0]
             timemin= query['time.min'][0]
             timemax= query['time.max'][0]
-            print 'query=', query
             if query.has_key('parameters'):
                 parameters= query['parameters'][0] 
                 parameters= parameters.split(',')
