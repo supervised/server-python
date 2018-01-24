@@ -31,7 +31,7 @@ def do_write_info( s, id, parameters, prefix ):
             newParameters= []
             includeParams= set(parameters)
             for i in xrange(len(allParameters)):
-                if ( allParameters[i]['name'] in includeParams ):
+                if ( i==0 or allParameters[i]['name'] in includeParams ):
                     newParameters.append( allParameters[i] )
             infoJsonModel['parameters']= newParameters
         infoJson= json.dumps( infoJsonModel, indent=4, separators=(',', ': '))
@@ -116,6 +116,15 @@ def do_get_parameters( id ):
     else:
         raise Except("this is not implemented!")
 
+def handle_key_parameters( query ):
+    'return the parameters in an array, or None'
+    if query.has_key('parameters'):
+        parameters= query['parameters'][0] 
+        parameters= parameters.split(',')
+    else:
+        parameters= None
+    return parameters
+
 def do_parameters_map( id, parameters ):
     "TODO: this is not implemented!"
     pp= do_get_parameters(id)
@@ -187,21 +196,13 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write(l)
         elif ( path=='info' ):
             id= query['id'][0]
-            if query.has_key('parameters'):
-                parameters= query['parameters'][0] 
-                parameters= parameters.split(',')
-            else:
-                parameters= None
+            parameters= handle_key_parameters(query)
             do_write_info( s, id, parameters, None )
         elif ( path=='data' ):
             id= query['id'][0]
             timemin= query['time.min'][0]
             timemax= query['time.max'][0]
-            if query.has_key('parameters'):
-                parameters= query['parameters'][0] 
-                parameters= parameters.split(',')
-            else:
-                parameters= None
+            parameters= handle_key_parameters(query)
             if query.has_key('include'):
                 if query['include'][0]=='header':
                     do_write_info( s, id, parameters, '#' )
