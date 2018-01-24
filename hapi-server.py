@@ -178,6 +178,11 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write(l)
         elif ( path=='info' ):
             id= query['id'][0]
+            if query.has_key('parameters'):
+                parameters= query['parameters'][0] 
+                parameters= parameters.split(',')
+            else:
+                parameters= None
             do_write_info( s, id, parameters, None )
         elif ( path=='data' ):
             id= query['id'][0]
