@@ -5,7 +5,6 @@ import glob
 import os
 import os.path
 import dateutil.parser
-import subprocess
 
 HOST_NAME = '192.168.0.46' # !!!REMEMBER TO CHANGE THIS!!!
 #HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
@@ -23,16 +22,26 @@ SERVER_HOME= '/hapi'  # Note no slash
 # * embedded info response, preceding the CSV response, is not yet supported.
 
 def do_write_info( s, id, parameters, prefix ):
-    try:    
-        #infoJson= open( HAPI_HOME + 'info/' + id + '.json' ).read()
-        #import json
-        #data= json.loads(infoJson)
-        #print data
-        for l in open( HAPI_HOME + 'info/' + id + '.json' ):
+    try:
+        infoJson= open( HAPI_HOME + 'info/' + id + '.json' ).read()
+        import json
+        infoJsonModel= json.loads(infoJson)
+        if ( parameters!=None ):
+            allParameters= infoJsonModel['parameters']
+            newParameters= []
+            includeParams= set(parameters)
+            for i in xrange(len(allParameters)):
+                if ( allParameters[i]['name'] in includeParams ):
+                    newParameters.append( allParameters[i] )
+            infoJsonModel['parameters']= newParameters
+        infoJson= json.dumps( infoJsonModel, indent=4, separators=(',', ': '))
+        for l in infoJson.split('\n'):
             l= do_info_macros(l)
             if ( prefix!=None ): s.wfile.write(prefix)
             s.wfile.write(l)
-    except:
+            s.wfile.write('\n');
+    except Error as e:
+        print e
         sendException(s.wfile,'unable to find '+id) 
 
 def do_data_csv( id, timemin, timemax, parameters, s ):
@@ -214,6 +223,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
             s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>subset of parameters</a>" % ( HOST_NAME, PORT_NUMBER ) )
             s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>" % ( HOST_NAME, PORT_NUMBER ) )
+            s.wfile.write("<br><a href='http://%s:%d/hapi/info?id=cputemp&include=header&parameters=Time,CPUTemperature'>infoSubset</a>" % ( HOST_NAME, PORT_NUMBER ) )
             s.wfile.write("</body></html>")
         else:
             for l in open( HAPI_HOME + 'error.json' ):
