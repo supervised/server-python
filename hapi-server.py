@@ -40,8 +40,7 @@ def do_write_info( s, id, parameters, prefix ):
             if ( prefix!=None ): s.wfile.write(prefix)
             s.wfile.write(l)
             s.wfile.write('\n');
-    except Error as e:
-        print e
+    except:
         sendException(s.wfile,'unable to find '+id) 
 
 def do_data_csv( id, timemin, timemax, parameters, s ):
