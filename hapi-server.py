@@ -6,6 +6,25 @@ import os
 import os.path
 import dateutil.parser
 
+import RPi.GPIO as GPIO
+# set GPIO 0 as LED pin
+LEDPIN = 27
+
+#setup function for some setup---custom function
+def setup():
+    GPIO.setwarnings(False)
+    #set the gpio modes to BCM numbering
+    GPIO.setmode(GPIO.BCM)
+    #set LEDPIN's mode to output,and initial level to LOW(0V)
+    GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
+
+#define a destroy function for clean up everything after the script finished
+def destroy():
+    #turn off LED
+    GPIO.output(LEDPIN,GPIO.LOW)
+    #release resource
+    GPIO.cleanup()
+
 HOST_NAME = '192.168.0.46' # !!!REMEMBER TO CHANGE THIS!!!
 #HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 9000 # Maybe set this to 9000.
@@ -125,12 +144,20 @@ def handle_key_parameters( query ):
     return parameters
 
 def do_parameters_map( id, parameters ):
-    "TODO: this is not implemented!"
     pp= do_get_parameters(id)
     result= map( pp.index, parameters )
     if ( result[0]!=0 ):
         result.insert(0,0)
     return result
+
+def get_forwarded(headers):
+    'This doesn''t work...'
+    #for h in headers: print h, '=', headers.get(h)
+    if headers.has_key('x-forwarded-server'):
+        return headers.get('x-forwarded-server')
+    else:
+        return None 
+
 
 class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -142,6 +169,8 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         s.end_headers()
 
     def do_GET(s):
+        GPIO.output(LEDPIN,GPIO.HIGH)
+
         pp= urlparse.urlparse(s.path)
 
         path= pp.path
@@ -160,9 +189,11 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         if ( path=='capabilities' ):                
            s.send_response(200)
            s.send_header("Content-type", "application/json")
+
         elif ( path=='catalog' ):
            s.send_response(200)
            s.send_header("Content-type", "application/json")
+
         elif ( path=='info' ):
            id= query['id'][0]
            if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
@@ -170,6 +201,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
            else:
                s.send_response(404)
            s.send_header("Content-type", "application/json")
+
         elif ( path=='data' ):
            id= query['id'][0]
            if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
@@ -178,12 +210,19 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
            else:
                s.send_response(404)
            s.send_header("Content-type", "text/csv")
+
         elif ( path=='' ):
            s.send_response(200)
            s.send_header("Content-type", "text/html")
+
         else:
            s.send_response(404)
            s.send_header("Content-type", "application/json")
+
+        s.send_header("Access-Control-Allow-Origin", "*")
+        s.send_header("Access-Control-Allow-Methods", "GET")
+        s.send_header("Access-Control-Allow-Headers", "Content-Type")
+
 
         s.end_headers()
 
@@ -207,30 +246,40 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     do_write_info( s, id, parameters, '#' )
             do_data_csv( id, timemin, timemax, parameters, s )
         elif ( path=='' ):
-            s.wfile.write("<html><head><title>Python HAPI Server</title></head>")
-            s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.</p>")
-            s.wfile.write("<p>Example requests:</p>")
-            u= "%s://%s:%d/hapi/catalog" % ( 'http', HOST_NAME, PORT_NUMBER )
-            s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
+            host_name= get_forwarded( s.headers )
+            port_number= PORT_NUMBER
+            if host_name==None: host_name= HOST_NAME
+            s.wfile.write("<html><head><title>Python HAPI Server</title></head>\n")
+            s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.</p>\n")
+            s.wfile.write("<p>Example requests:</p>\n")
+            u= "%s://%s:%d/hapi/catalog" % ( 'http', host_name, port_number )
+            s.wfile.write("<a href='%s'>%s</a></br>\n" % ( u,u ) )
             ff= glob.glob( HAPI_HOME + 'info/*.json' )
             n= len( HAPI_HOME + 'info/' )
             timemin= '2018-01-19T00:00Z'
             timemax= '2018-01-20T00:00Z'
             for f in ff:
-                u= "%s://%s:%d/hapi/info?id=%s" % ( 'http', HOST_NAME, PORT_NUMBER, f[n:-5] )
-                s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
-                u= "%s://%s:%d/hapi/data?id=%s&time.min=%s&time.max=%s" % ( 'http', HOST_NAME, PORT_NUMBER, f[n:-5], timemin, timemax )
-                s.wfile.write("<a href='%s'>%s</a></br>" % ( u,u ) )
-            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>subset of parameters</a>" % ( HOST_NAME, PORT_NUMBER ) )
-            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>" % ( HOST_NAME, PORT_NUMBER ) )
-            s.wfile.write("<br><a href='http://%s:%d/hapi/info?id=cputemp&include=header&parameters=Time,CPUTemperature'>infoSubset</a>" % ( HOST_NAME, PORT_NUMBER ) )
-            s.wfile.write("</body></html>")
+                u= "%s://%s:%d/hapi/info?id=%s" % ( 'http', host_name, port_number, f[n:-5] )
+                s.wfile.write("<a href='%s'>%s</a></br>\n" % ( u,u ) )
+                u= "%s://%s:%d/hapi/data?id=%s&time.min=%s&time.max=%s" % ( 'http', host_name, PORT_NUMBER, f[n:-5], timemin, timemax )
+                s.wfile.write("<a href='%s'>%s</a></br>\n" % ( u,u ) )
+            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>subset of parameters</a>\n" % ( host_name, port_number ) )
+            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>\n" % ( host_name, port_number ) )
+            s.wfile.write("<br><a href='http://%s:%d/hapi/info?id=cputemp&include=header&parameters=Time,CPUTemperature'>infoSubset</a>" % ( host_name, port_number ) )
+            s.wfile.write("<br><br><a href='http://192.168.0.46:2121/'>1-wire http</a>\n")
+            s.wfile.write("</body></html>\n")
         else:
             for l in open( HAPI_HOME + 'error.json' ):
                 s.wfile.write(l)
+        GPIO.output(LEDPIN,GPIO.LOW)
 
 
 if __name__ == '__main__':
+    setup()
+    GPIO.output(LEDPIN,GPIO.HIGH)
+    time.sleep(0.2)
+    GPIO.output(LEDPIN,GPIO.LOW)
+
     server_class = BaseHTTPServer.HTTPServer
     httpd = server_class((HOST_NAME, PORT_NUMBER), MyHandler)
     print time.asctime(), "Server Starts - %s:%s" % (HOST_NAME, PORT_NUMBER)
@@ -238,6 +287,9 @@ if __name__ == '__main__':
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
+
+    destroy()
+
     httpd.server_close()
     print time.asctime(), "Server Stops - %s:%s" % (HOST_NAME, PORT_NUMBER)
 
