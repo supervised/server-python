@@ -1,0 +1,39 @@
+{
+    "HAPI": "2.0",
+    "status": {
+        "code": 1200,
+        "message": "OK request successful"
+    },
+    "createdAt": "now",
+    "modificationDate": "lastday",
+    "parameters": [
+        {
+            "length": 24,
+            "name": "Time",
+            "type": "isotime",
+            "fill": null,            
+            "units": "UTC"
+        },
+        {
+            "description": "GPU temperature",
+            "label": "GPU temperature",
+            "fill": "-1e31",
+            "name": "GPUTemperature",
+            "type": "double",
+            "units": "deg C"
+        },
+        {
+            "description": "CPU temperature",
+            "label": "CPU temperature",
+            "fill": "-1e31",
+            "name": "CPUTemperature",
+            "type": "double",
+            "units": "deg C"
+        }
+    ],
+    "startDate": "2018-01-19T00:00Z",
+    "stopDate": "lasthour",
+    "sampleStartDate": "lastday-P1D",
+    "sampleStopDate": "lastday",
+    "cadence": "PT1M"
+}
