@@ -60,7 +60,7 @@ def do_write_info( s, id, parameters, prefix ):
             s.wfile.write(l)
             s.wfile.write('\n');
     except:
-        sendException(s.wfile,'unable to find '+id) 
+        sendException(s.wfile,'Not Found') 
 
 def do_data_csv( id, timemin, timemax, parameters, s ):
     ff= HAPI_HOME + 'data/' + id + '/'
@@ -124,7 +124,7 @@ def do_info_macros( line ):
     return line
     
 def sendException( w, msg ):
-    w.write( '{ "HAPI": "2.0", "status": { "code": 1406, "message": "error" } }' )
+    w.write( '{ "HAPI": "2.0", "status": { "code": 1406, "message": "%s" } }\n' % msg )
 
 def do_get_parameters( id ):
     if ( id=='10.CF3744000800' ):
@@ -259,13 +259,13 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             timemin= '2018-01-19T00:00Z'
             timemax= '2018-01-20T00:00Z'
             for f in ff:
-                u= "%s://%s:%d/hapi/info?id=%s" % ( 'http', host_name, port_number, f[n:-5] )
+                u= "hapi/info?id=%s" % ( f[n:-5] )
                 s.wfile.write("<a href='%s'>%s</a></br>\n" % ( u,u ) )
-                u= "%s://%s:%d/hapi/data?id=%s&time.min=%s&time.max=%s" % ( 'http', host_name, PORT_NUMBER, f[n:-5], timemin, timemax )
+                u= "hapi/data?id=%s&time.min=%s&time.max=%s" % ( f[n:-5], timemin, timemax )
                 s.wfile.write("<a href='%s'>%s</a></br>\n" % ( u,u ) )
-            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>subset of parameters</a>\n" % ( host_name, port_number ) )
-            s.wfile.write("<br><a href='http://%s:%d/hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>\n" % ( host_name, port_number ) )
-            s.wfile.write("<br><a href='http://%s:%d/hapi/info?id=cputemp&include=header&parameters=Time,CPUTemperature'>infoSubset</a>" % ( host_name, port_number ) )
+            s.wfile.write("<br><a href='hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>subset of parameters</a>\n" )
+            s.wfile.write("<br><a href='hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>\n"  )
+            s.wfile.write("<br><a href='hapi/info?id=cputemp&include=header&parameters=Time,CPUTemperature'>infoSubset</a>"  )
             s.wfile.write("<br><br><a href='http://192.168.0.46:2121/'>1-wire http</a>\n")
             s.wfile.write("</body></html>\n")
         else:
