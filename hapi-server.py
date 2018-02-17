@@ -1,5 +1,7 @@
 import time
 import BaseHTTPServer
+from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+from SocketServer import ThreadingMixIn
 import urlparse
 import glob
 import os
@@ -30,7 +32,7 @@ HOST_NAME = '192.168.0.46' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 9000 # Maybe set this to 9000.
 
 HAPI_HOME= '/home/jbf/hapi/'
-SERVER_HOME= '/hapi'  # Note no slash
+SERVER_HOME= 'hapi/'  # Note no leading slash, must have trailing slash
 
 # Configuration requirements
 # * capabilities and catalog responses must be formatted as JSON in SERVER_HOME.
@@ -159,7 +161,7 @@ def get_forwarded(headers):
         return None 
 
 
-class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+class MyHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         return
 
@@ -171,30 +173,29 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     def do_GET(s):
         GPIO.output(LEDPIN,GPIO.HIGH)
 
+        path= s.path
         pp= urlparse.urlparse(s.path)
-
-        path= pp.path
 
         while ( path.endswith('/') ):
             path= path[:-1]
 
-        if ( path.startswith(SERVER_HOME) ):
-            path= path[len(SERVER_HOME):]
+        i= path.find('?')
+        if ( i>-1 ): path= path[0:i] 
 
         while ( path.startswith('/') ):
             path= path[1:]
 
         query= urlparse.parse_qs( pp.query )
 
-        if ( path=='capabilities' ):                
+        if ( path=='hapi/capabilities' ):                
            s.send_response(200)
            s.send_header("Content-type", "application/json")
 
-        elif ( path=='catalog' ):
+        elif ( path=='hapi/catalog' ):
            s.send_response(200)
            s.send_header("Content-type", "application/json")
 
-        elif ( path=='info' ):
+        elif ( path=='hapi/info' ):
            id= query['id'][0]
            if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
                s.send_response(200)
@@ -202,7 +203,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                s.send_response(404)
            s.send_header("Content-type", "application/json")
 
-        elif ( path=='data' ):
+        elif ( path=='hapi/data' ):
            id= query['id'][0]
            if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
                s.send_response(200)
@@ -211,7 +212,7 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                s.send_response(404)
            s.send_header("Content-type", "text/csv")
 
-        elif ( path=='' ):
+        elif ( path=='hapi' ):
            s.send_response(200)
            s.send_header("Content-type", "text/html")
 
@@ -226,17 +227,17 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
         s.end_headers()
 
-        if ( path=='capabilities' ):
+        if ( path=='hapi/capabilities' ):
             for l in open( HAPI_HOME + 'capabilities.json' ):
                 s.wfile.write(l)
-        elif ( path=='catalog' ):
+        elif ( path=='hapi/catalog' ):
             for l in open( HAPI_HOME + 'catalog.json' ):
                 s.wfile.write(l)
-        elif ( path=='info' ):
+        elif ( path=='hapi/info' ):
             id= query['id'][0]
             parameters= handle_key_parameters(query)
             do_write_info( s, id, parameters, None )
-        elif ( path=='data' ):
+        elif ( path=='hapi/data' ):
             id= query['id'][0]
             timemin= query['time.min'][0]
             timemax= query['time.max'][0]
@@ -245,14 +246,14 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 if query['include'][0]=='header':
                     do_write_info( s, id, parameters, '#' )
             do_data_csv( id, timemin, timemax, parameters, s )
-        elif ( path=='' ):
+        elif ( path=='hapi' ):
             host_name= get_forwarded( s.headers )
             port_number= PORT_NUMBER
             if host_name==None: host_name= HOST_NAME
             s.wfile.write("<html><head><title>Python HAPI Server</title></head>\n")
             s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.</p>\n")
             s.wfile.write("<p>Example requests:</p>\n")
-            u= "%s://%s:%d/hapi/catalog" % ( 'http', host_name, port_number )
+            u= "hapi/catalog" 
             s.wfile.write("<a href='%s'>%s</a></br>\n" % ( u,u ) )
             ff= glob.glob( HAPI_HOME + 'info/*.json' )
             n= len( HAPI_HOME + 'info/' )
@@ -273,6 +274,8 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 s.wfile.write(l)
         GPIO.output(LEDPIN,GPIO.LOW)
 
+class ThreadedHTTPServer( ThreadingMixIn, HTTPServer ):
+   '''Handle requests in a separate thread.'''
 
 if __name__ == '__main__':
     setup()
@@ -280,8 +283,7 @@ if __name__ == '__main__':
     time.sleep(0.2)
     GPIO.output(LEDPIN,GPIO.LOW)
 
-    server_class = BaseHTTPServer.HTTPServer
-    httpd = server_class((HOST_NAME, PORT_NUMBER), MyHandler)
+    httpd = ThreadedHTTPServer((HOST_NAME, PORT_NUMBER), MyHandler)
     print time.asctime(), "Server Starts - %s:%s" % (HOST_NAME, PORT_NUMBER)
     try:
         httpd.serve_forever()
