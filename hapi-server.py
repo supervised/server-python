@@ -1,5 +1,4 @@
 import time
-import BaseHTTPServer
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
 import urlparse
@@ -32,7 +31,6 @@ HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 9000 # Maybe set this to 9000.
 
 HAPI_HOME= '/home/jbf/hapi/'
-SERVER_HOME= 'hapi/'  # Note no leading slash, must have trailing slash
 
 # Configuration requirements
 # * capabilities and catalog responses must be formatted as JSON in SERVER_HOME.
@@ -63,6 +61,30 @@ def do_write_info( s, id, parameters, prefix ):
             s.wfile.write('\n');
     except:
         sendException(s.wfile,'Not Found') 
+
+def get_last_modified( id, timemin, timemax ):
+    'return the time stamp of the most recently modified file, from files in $Y/$(x,name=id).$Y$m$d.csv'
+    ff= HAPI_HOME + 'data/' + id + '/'
+    filemin= dateutil.parser.parse( timemin ).strftime('%Y%m%d')
+    filemax= dateutil.parser.parse( timemax ).strftime('%Y%m%d')
+    timemin= dateutil.parser.parse( timemin ).strftime('%Y-%m-%dT%H:%M:%S')
+    timemax= dateutil.parser.parse( timemax ).strftime('%Y-%m-%dT%H:%M:%S')
+    yrmin= int( timemin[0:4] )
+    yrmax= int( timemax[0:4] )
+    lastModified= None
+    from email.utils import formatdate
+    for yr in range(yrmin,yrmax+1):
+        ffyr= ff + '%04d' % yr
+        if ( not os.path.exists(ffyr) ): continue
+        files= sorted( os.listdir( ffyr ) ) 
+        for file in files:
+             ymd= file[-12:-4]
+             if ( filemin<=ymd and ymd<=filemax ):
+                  mtime= os.path.getmtime( ffyr + '/' + file )
+                  if ( lastModified==None or mtime>lastModified ): lastModified=mtime
+                  #print 'line87: ', file, formatdate( timeval=mtime, localtime=False, usegmt=True )
+    #print 'line89: ', formatdate( timeval=lastModified, localtime=False, usegmt=True )
+    return lastModified
 
 def do_data_csv( id, timemin, timemax, parameters, s ):
     ff= HAPI_HOME + 'data/' + id + '/'
@@ -224,6 +246,13 @@ class MyHandler(BaseHTTPRequestHandler):
         s.send_header("Access-Control-Allow-Methods", "GET")
         s.send_header("Access-Control-Allow-Headers", "Content-Type")
 
+        if ( path=='hapi/data' ):
+            id= query['id'][0]
+            timemin= query['time.min'][0]
+            timemax= query['time.max'][0]
+            lastModified= get_last_modified( id, timemin, timemax );
+            from email.utils import formatdate
+            s.send_header("Last-Modified", formatdate( timeval=lastModified, localtime=False, usegmt=True ) );
 
         s.end_headers()
 
