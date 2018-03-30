@@ -48,17 +48,18 @@ class GpioFeedback():
         GPIO.output(self.ledpin,GPIO.HIGH)
     def finish(self,responseHeaders):
         GPIO.output(self.ledpin,GPIO.LOW)
-        
-#See "import RPi.GPIO as GPIO" above, which must be uncommented.
-#feedback= GpioFeedback(27)  # When this is installed on the Raspberry PI
-#HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
-#PORT_NUMBER = 9000 # Maybe set this to 9000.
-#HAPI_HOME= '/home/jbf/hapi/'
-
-feedback= StdoutFeedback()  # When testing at the unix command line.
-HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
-PORT_NUMBER = 9000 # Maybe set this to 9000.
-HAPI_HOME= '/home/jbf/hapi/'
+     
+isTesting=True   #See "import RPi.GPIO as GPIO" above, which must be uncommented.
+if ( not isTesting ):
+    feedback= GpioFeedback(27)  # When this is installed on the Raspberry PI
+    HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
+    PORT_NUMBER = 9000 # Maybe set this to 9000.
+    HAPI_HOME= '/home/jbf/hapi/'
+else:
+    feedback= StdoutFeedback()  # When testing at the unix command line.
+    HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
+    PORT_NUMBER = 9000 # Maybe set this to 9000.
+    HAPI_HOME= '/home/jbf/hapi/'
 
 # Configuration requirements
 # * capabilities and catalog responses must be formatted as JSON in SERVER_HOME.
