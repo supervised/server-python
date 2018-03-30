@@ -35,19 +35,19 @@ class GpioFeedback():
         #set the gpio modes to BCM numbering
         GPIO.setmode(GPIO.BCM)
         #set LEDPIN's mode to output,and initial level to LOW(0V)
-        GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
-        GPIO.output(LEDPIN,GPIO.HIGH)
+        GPIO.setup(self.ledpin,GPIO.OUT,initial=GPIO.LOW)
+        GPIO.output(self.ledpin,GPIO.HIGH)
         time.sleep(0.2)
-        GPIO.output(LEDPIN,GPIO.LOW)
+        GPIO.output(self.ledpin,GPIO.LOW)
     def destroy(self):
         #turn off LED
-        GPIO.output(LEDPIN,GPIO.LOW)
+        GPIO.output(self.ledpin,GPIO.LOW)
         #release resource
         GPIO.cleanup()
     def start(self,requestHeaders):
-        GPIO.output(LEDPIN,GPIO.HIGH)
+        GPIO.output(self.ledpin,GPIO.HIGH)
     def finish(self,responseHeaders):
-        GPIO.output(LEDPIN,GPIO.LOW)
+        GPIO.output(self.ledpin,GPIO.LOW)
         
 #See "import RPi.GPIO as GPIO" above, which must be uncommented.
 #feedback= GpioFeedback(27)  # When this is installed on the Raspberry PI
