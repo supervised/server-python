@@ -4,7 +4,6 @@ from SocketServer import ThreadingMixIn
 import urlparse
 import glob
 import os
-import os.path
 import dateutil.parser
 
 
@@ -265,7 +264,6 @@ class MyHandler(BaseHTTPRequestHandler):
                from email.utils import parsedate_tz,formatdate
                import time
                timecomponents= parsedate_tz(lms) 
-               import os
                os.environ['TZ']='gmt'
                theyHave= time.mktime( timecomponents[:-1] )
                theyHave = theyHave - timecomponents[-1]
