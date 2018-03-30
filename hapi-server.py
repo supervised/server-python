@@ -11,17 +11,14 @@ import dateutil.parser
 class StdoutFeedback():
     def __init__(self):
         print 'feedback is over stdout'
-        
     def setup(self):    
         print 'setup feedback.'
-
     def destroy(self):
         print 'destroy feedback.'
-
     def start(self,requestHeaders):
-        print '----------'
+        from time import gmtime, strftime
+        print '----------', strftime("%Y-%m-%dT%H:%M:%SZ", gmtime()), '----------'
         print requestHeaders
-        
     def finish(self,responseHeaders):
         print '---'
         for h in responseHeaders:
@@ -42,7 +39,6 @@ class GpioFeedback():
         self.GPIO.output(LEDPIN,GPIO.HIGH)
         time.sleep(0.2)
         self.GPIO.output(LEDPIN,GPIO.LOW)
-
     def destroy(self):
         #turn off LED
         self.GPIO.output(LEDPIN,GPIO.LOW)
@@ -55,9 +51,9 @@ class GpioFeedback():
         
 #import RPi.GPIO as GPIO
 #feedback= GpioFeedback(RPi.GPIO,27)  # When this is installed on the Raspberry PI
-feedback= StdoutFeedback()  # When testing at the unix command line.
-
 #HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
+
+feedback= StdoutFeedback()  # When testing at the unix command line.
 HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 9000 # Maybe set this to 9000.
 HAPI_HOME= '/home/jbf/hapi/'
@@ -93,7 +89,7 @@ def do_write_info( s, id, parameters, prefix ):
         send_exception(s.wfile,'Not Found') 
 
 def get_last_modified( id, timemin, timemax ):
-    'return the time stamp of the most recently modified file, from files in $Y/$(x,name=id).$Y$m$d.csv'
+    'return the time stamp of the most recently modified file, from files in $Y/$(x,name=id).$Y$m$d.csv, seconds since epoch (1970) UTC'
     ff= HAPI_HOME + 'data/' + id + '/'
     filemin= dateutil.parser.parse( timemin ).strftime('%Y%m%d')
     filemax= dateutil.parser.parse( timemax ).strftime('%Y%m%d')
@@ -112,9 +108,9 @@ def get_last_modified( id, timemin, timemax ):
              if ( filemin<=ymd and ymd<=filemax ):
                   mtime= os.path.getmtime( ffyr + '/' + file )
                   if ( lastModified==None or mtime>lastModified ): lastModified=mtime
-                  #print 'line87: ', file, formatdate( timeval=mtime, localtime=False, usegmt=True )
+                  #print 'line87: ', file, lastModified, formatdate( timeval=mtime, localtime=False, usegmt=True )
     #print 'line89: ', formatdate( timeval=lastModified, localtime=False, usegmt=True )
-    return lastModified
+    return int(lastModified)  # truncate since milliseconds are not transmitted
 	
 def do_data_csv( id, timemin, timemax, parameters, s ):
     ff= HAPI_HOME + 'data/' + id + '/'
@@ -260,6 +256,24 @@ class MyHandler(BaseHTTPRequestHandler):
            timemin= query['time.min'][0]
            timemax= query['time.max'][0]
            lastModified= get_last_modified( id, timemin, timemax );
+           # wget -O foo.csv --tries=1 --header="If-Modified-Since: Tue, 13 Mar 2018 21:47:02 GMT" 'http://192.168.0.205:9000/hapi/data?id=10.CF3744000800&time.min=2018-03-03T00:00Z&time.max=2018-03-12T00:00Z'
+           if ( s.headers.has_key('If-Modified-Since') ):
+               lms= s.headers['If-Modified-Since']
+               from email.utils import parsedate_tz,formatdate
+               import time
+               timecomponents= parsedate_tz(lms) 
+               import os
+               os.environ['TZ']='gmt'
+               theyHave= time.mktime( timecomponents[:-1] )
+               theyHave = theyHave - timecomponents[-1]
+               #print 'theyHave: ', theyHave, lms
+               #print 'lm,delta: ', lastModified, ( lastModified-theyHave ), formatdate( timeval=lastModified, localtime=False, usegmt=True )
+               if ( lastModified <= theyHave ):
+                   s.send_response(304)
+                   s.end_headers()
+                   feedback.finish(responseHeaders)
+                   return
+               
            # check request header for If-Modified-Since
            if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
                s.send_response(200)
