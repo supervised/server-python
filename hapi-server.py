@@ -7,14 +7,6 @@ import os
 import os.path
 import dateutil.parser
 
-#import RPi.GPIO as GPIO
-class GPIO_CLASS:
-    def __init__(self):
-        self.HIGH='high'
-        self.LOW='low'
-    def output(self,ledpin,state):
-        print 'output ', ledpin, state
-GPIO= GPIO_CLASS()
 
 class StdoutFeedback():
     def __init__(self):
@@ -27,42 +19,47 @@ class StdoutFeedback():
         print 'destroy feedback.'
 
     def start(self,requestHeaders):
+        print '----------'
         print requestHeaders
         
     def finish(self,responseHeaders):
-        print responseHeaders
+        print '---'
+        for h in responseHeaders:
+            print '%s: %s' % ( h, responseHeaders[h] )
+        print '----------'
     
 class GpioFeedback():
-    def __init__(self,ledpin):
+    def __init__(self,GPIO,ledpin):
         print 'feedback is over GPIO pin ',ledpin
         self.ledpin=ledpin
+        self.GPIO=GPIO
     def setup(self):    
-        GPIO.setwarnings(False)
+        self.GPIO.setwarnings(False)
         #set the gpio modes to BCM numbering
-        GPIO.setmode(GPIO.BCM)
+        self.GPIO.setmode(GPIO.BCM)
         #set LEDPIN's mode to output,and initial level to LOW(0V)
-        GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
-        GPIO.output(LEDPIN,GPIO.HIGH)
+        self.GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
+        self.GPIO.output(LEDPIN,GPIO.HIGH)
         time.sleep(0.2)
-        GPIO.output(LEDPIN,GPIO.LOW)
+        self.GPIO.output(LEDPIN,GPIO.LOW)
 
     def destroy(self):
         #turn off LED
-        GPIO.output(LEDPIN,GPIO.LOW)
+        self.GPIO.output(LEDPIN,GPIO.LOW)
         #release resource
-        GPIO.cleanup()
+        self.GPIO.cleanup()
     def start(self,requestHeaders):
-        GPIO.output(LEDPIN,GPIO.HIGH)
+        self.GPIO.output(LEDPIN,GPIO.HIGH)
     def finish(self,responseHeaders):
-        GPIO.output(LEDPIN,GPIO.LOW)
+        self.GPIO.output(LEDPIN,GPIO.LOW)
         
-#feedback= GpioFeedback(27)
-feedback= StdoutFeedback()
+#import RPi.GPIO as GPIO
+#feedback= GpioFeedback(RPi.GPIO,27)  # When this is installed on the Raspberry PI
+feedback= StdoutFeedback()  # When testing at the unix command line.
 
 #HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
 HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 9000 # Maybe set this to 9000.
-
 HAPI_HOME= '/home/jbf/hapi/'
 
 # Configuration requirements
@@ -93,7 +90,7 @@ def do_write_info( s, id, parameters, prefix ):
             s.wfile.write(l)
             s.wfile.write('\n');
     except:
-        sendException(s.wfile,'Not Found') 
+        send_exception(s.wfile,'Not Found') 
 
 def get_last_modified( id, timemin, timemax ):
     'return the time stamp of the most recently modified file, from files in $Y/$(x,name=id).$Y$m$d.csv'
@@ -133,8 +130,6 @@ def do_data_csv( id, timemin, timemax, parameters, s ):
         mm= None
     for yr in range(yrmin,yrmax+1):
         ffyr= ff + '%04d' % yr
-        ymdmin= timemin[0:8]
-        ymdmax= timemax[0:8]
         if ( not os.path.exists(ffyr) ): continue
         files= sorted( os.listdir( ffyr ) ) 
         for file in files:
@@ -180,7 +175,7 @@ def do_info_macros( line ):
        return ss[0] + '"' + midnight.strftime('%Y-%m-%dT%H:%M:%SZ')+ '"' + ss[1]
     return line
     
-def sendException( w, msg ):
+def send_exception( w, msg ):
     w.write( '{ "HAPI": "2.0", "status": { "code": 1406, "message": "%s" } }\n' % msg )
 
 def do_get_parameters( id ):
@@ -228,6 +223,7 @@ class MyHandler(BaseHTTPRequestHandler):
     def do_GET(s):
         
         feedback.start(s.headers)
+        responseHeaders= {}
         
         path= s.path
         pp= urlparse.urlparse(s.path)
@@ -286,8 +282,11 @@ class MyHandler(BaseHTTPRequestHandler):
 
         if ( path=='hapi/data' ):
             from email.utils import formatdate
-            s.send_header("Last-Modified", formatdate( timeval=lastModified, localtime=False, usegmt=True ) );
-
+            responseHeaders['Last-Modified']= formatdate( timeval=lastModified, localtime=False, usegmt=True ) 
+        
+        for h in responseHeaders:
+            s.send_header(h,responseHeaders[h])
+            
         s.end_headers()
 
         if ( path=='hapi/capabilities' ):
@@ -310,9 +309,6 @@ class MyHandler(BaseHTTPRequestHandler):
                     do_write_info( s, id, parameters, '#' )
             do_data_csv( id, timemin, timemax, parameters, s )
         elif ( path=='hapi' ):
-            host_name= get_forwarded( s.headers )
-            port_number= PORT_NUMBER
-            if host_name==None: host_name= HOST_NAME
             s.wfile.write("<html><head><title>Python HAPI Server</title></head>\n")
             s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.</p>\n")
             s.wfile.write("<p>Example requests:</p>\n")
@@ -335,7 +331,7 @@ class MyHandler(BaseHTTPRequestHandler):
         else:
             for l in open( HAPI_HOME + 'error.json' ):
                 s.wfile.write(l)
-        feedback.finish(None)
+        feedback.finish(responseHeaders)
 
 class ThreadedHTTPServer( ThreadingMixIn, HTTPServer ):
    '''Handle requests in a separate thread.'''
