@@ -25,33 +25,36 @@ class StdoutFeedback():
             print '%s: %s' % ( h, responseHeaders[h] )
         print '----------'
     
+#import RPi.GPIO as GPIO
+
 class GpioFeedback():
-    def __init__(self,GPIO,ledpin):
+    def __init__(self,ledpin):
         print 'feedback is over GPIO pin ',ledpin
         self.ledpin=ledpin
-        self.GPIO=GPIO
     def setup(self):    
-        self.GPIO.setwarnings(False)
+        GPIO.setwarnings(False)
         #set the gpio modes to BCM numbering
-        self.GPIO.setmode(GPIO.BCM)
+        GPIO.setmode(GPIO.BCM)
         #set LEDPIN's mode to output,and initial level to LOW(0V)
-        self.GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
-        self.GPIO.output(LEDPIN,GPIO.HIGH)
+        GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
+        GPIO.output(LEDPIN,GPIO.HIGH)
         time.sleep(0.2)
-        self.GPIO.output(LEDPIN,GPIO.LOW)
+        GPIO.output(LEDPIN,GPIO.LOW)
     def destroy(self):
         #turn off LED
-        self.GPIO.output(LEDPIN,GPIO.LOW)
+        GPIO.output(LEDPIN,GPIO.LOW)
         #release resource
-        self.GPIO.cleanup()
+        GPIO.cleanup()
     def start(self,requestHeaders):
-        self.GPIO.output(LEDPIN,GPIO.HIGH)
+        GPIO.output(LEDPIN,GPIO.HIGH)
     def finish(self,responseHeaders):
-        self.GPIO.output(LEDPIN,GPIO.LOW)
+        GPIO.output(LEDPIN,GPIO.LOW)
         
-#import RPi.GPIO as GPIO
-#feedback= GpioFeedback(RPi.GPIO,27)  # When this is installed on the Raspberry PI
+#See "import RPi.GPIO as GPIO" above, which must be uncommented.
+#feedback= GpioFeedback(27)  # When this is installed on the Raspberry PI
 #HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
+#PORT_NUMBER = 9000 # Maybe set this to 9000.
+#HAPI_HOME= '/home/jbf/hapi/'
 
 feedback= StdoutFeedback()  # When testing at the unix command line.
 HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
