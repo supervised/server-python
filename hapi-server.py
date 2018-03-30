@@ -7,27 +7,60 @@ import os
 import os.path
 import dateutil.parser
 
-import RPi.GPIO as GPIO
-# set GPIO 0 as LED pin
-LEDPIN = 27
+#import RPi.GPIO as GPIO
+class GPIO_CLASS:
+    def __init__(self):
+        self.HIGH='high'
+        self.LOW='low'
+    def output(self,ledpin,state):
+        print 'output ', ledpin, state
+GPIO= GPIO_CLASS()
 
-#setup function for some setup---custom function
-def setup():
-    GPIO.setwarnings(False)
-    #set the gpio modes to BCM numbering
-    GPIO.setmode(GPIO.BCM)
-    #set LEDPIN's mode to output,and initial level to LOW(0V)
-    GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
+class StdoutFeedback():
+    def __init__(self):
+        print 'feedback is over stdout'
+        
+    def setup(self):    
+        print 'setup feedback.'
 
-#define a destroy function for clean up everything after the script finished
-def destroy():
-    #turn off LED
-    GPIO.output(LEDPIN,GPIO.LOW)
-    #release resource
-    GPIO.cleanup()
+    def destroy(self):
+        print 'destroy feedback.'
 
-HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
-#HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
+    def start(self,requestHeaders):
+        print requestHeaders
+        
+    def finish(self,responseHeaders):
+        print responseHeaders
+    
+class GpioFeedback():
+    def __init__(self,ledpin):
+        print 'feedback is over GPIO pin ',ledpin
+        self.ledpin=ledpin
+    def setup(self):    
+        GPIO.setwarnings(False)
+        #set the gpio modes to BCM numbering
+        GPIO.setmode(GPIO.BCM)
+        #set LEDPIN's mode to output,and initial level to LOW(0V)
+        GPIO.setup(LEDPIN,GPIO.OUT,initial=GPIO.LOW)
+        GPIO.output(LEDPIN,GPIO.HIGH)
+        time.sleep(0.2)
+        GPIO.output(LEDPIN,GPIO.LOW)
+
+    def destroy(self):
+        #turn off LED
+        GPIO.output(LEDPIN,GPIO.LOW)
+        #release resource
+        GPIO.cleanup()
+    def start(self,requestHeaders):
+        GPIO.output(LEDPIN,GPIO.HIGH)
+    def finish(self,responseHeaders):
+        GPIO.output(LEDPIN,GPIO.LOW)
+        
+#feedback= GpioFeedback(27)
+feedback= StdoutFeedback()
+
+#HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
+HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 9000 # Maybe set this to 9000.
 
 HAPI_HOME= '/home/jbf/hapi/'
@@ -85,7 +118,7 @@ def get_last_modified( id, timemin, timemax ):
                   #print 'line87: ', file, formatdate( timeval=mtime, localtime=False, usegmt=True )
     #print 'line89: ', formatdate( timeval=lastModified, localtime=False, usegmt=True )
     return lastModified
-
+	
 def do_data_csv( id, timemin, timemax, parameters, s ):
     ff= HAPI_HOME + 'data/' + id + '/'
     filemin= dateutil.parser.parse( timemin ).strftime('%Y%m%d')
@@ -193,11 +226,12 @@ class MyHandler(BaseHTTPRequestHandler):
         s.end_headers()
 
     def do_GET(s):
-        GPIO.output(LEDPIN,GPIO.HIGH)
-
+        
+        feedback.start(s.headers)
+        
         path= s.path
         pp= urlparse.urlparse(s.path)
-
+        
         while ( path.endswith('/') ):
             path= path[:-1]
 
@@ -227,6 +261,10 @@ class MyHandler(BaseHTTPRequestHandler):
 
         elif ( path=='hapi/data' ):
            id= query['id'][0]
+           timemin= query['time.min'][0]
+           timemax= query['time.max'][0]
+           lastModified= get_last_modified( id, timemin, timemax );
+           # check request header for If-Modified-Since
            if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
                s.send_response(200)
                s.send_header("Content-type", "text/csv")
@@ -247,10 +285,6 @@ class MyHandler(BaseHTTPRequestHandler):
         s.send_header("Access-Control-Allow-Headers", "Content-Type")
 
         if ( path=='hapi/data' ):
-            id= query['id'][0]
-            timemin= query['time.min'][0]
-            timemax= query['time.max'][0]
-            lastModified= get_last_modified( id, timemin, timemax );
             from email.utils import formatdate
             s.send_header("Last-Modified", formatdate( timeval=lastModified, localtime=False, usegmt=True ) );
 
@@ -301,16 +335,13 @@ class MyHandler(BaseHTTPRequestHandler):
         else:
             for l in open( HAPI_HOME + 'error.json' ):
                 s.wfile.write(l)
-        GPIO.output(LEDPIN,GPIO.LOW)
+        feedback.finish(None)
 
 class ThreadedHTTPServer( ThreadingMixIn, HTTPServer ):
    '''Handle requests in a separate thread.'''
 
 if __name__ == '__main__':
-    setup()
-    GPIO.output(LEDPIN,GPIO.HIGH)
-    time.sleep(0.2)
-    GPIO.output(LEDPIN,GPIO.LOW)
+    feedback.setup()
 
     httpd = ThreadedHTTPServer((HOST_NAME, PORT_NUMBER), MyHandler)
     print time.asctime(), "Server Starts - %s:%s" % (HOST_NAME, PORT_NUMBER)
@@ -319,7 +350,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pass
 
-    destroy()
+    feedback.destroy()
 
     httpd.server_close()
     print time.asctime(), "Server Stops - %s:%s" % (HOST_NAME, PORT_NUMBER)
