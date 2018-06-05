@@ -13,6 +13,8 @@ The file must be modified for the particular installation.  Four configuration v
 * HAPI_HOME is the folder which will contain the data and templates for the server responses.  (/home/pi/hapi/)
 * SERVER_HOME is the folder within the server URLs.  (hapi)
 
+There is a boolean isTesting, which was used to test things on the bench before installing it (in a headless environment which is difficult to get to).  In one mode, GPIO is used to provide feedback that a request is being served, and there is an alternate mode which echos to stderr.
+
 A few folders and data files must be created on the device.  Supposing HAPI_HOME is /home/pi/hapi/, the following files are needed under /home/pi/hapi:
 * capabilities.json  the capabilities response. 
 * catalog.json   the catalog response.  
