@@ -27,6 +27,7 @@ class StdoutFeedback():
 #import RPi.GPIO as GPIO
 
 class GpioFeedback():
+    'the server could turn on an LED to indicate it was serving data'
     def __init__(self,ledpin):
         print 'feedback is over GPIO pin ',ledpin
         self.ledpin=ledpin
