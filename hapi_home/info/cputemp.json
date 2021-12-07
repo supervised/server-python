@@ -32,8 +32,8 @@
         }
     ],
     "startDate": "2018-01-19T00:00Z",
-    "stopDate": "lasthour",
-    "sampleStartDate": "lastday-P1D",
-    "sampleStopDate": "lastday",
+    "stopDate": "2018-01-23T00:00Z",
+    "sampleStartDate": "2018-01-20T00:00Z",
+    "sampleStopDate": "2018-01-21T00:00Z",
     "cadence": "PT1M"
 }
