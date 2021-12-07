@@ -16,18 +16,29 @@ class StdoutFeedback():
         print 'destroy feedback.'
     def start(self,requestHeaders):
         from time import gmtime, strftime
-        print '----------', strftime("%Y-%m-%dT%H:%M:%SZ", gmtime()), '----------'
+        print 'start ----------', strftime("%Y-%m-%dT%H:%M:%SZ", gmtime()), '----------'
         print requestHeaders
     def finish(self,responseHeaders):
-        print '---'
+        print 'finish ---------'
         for h in responseHeaders:
             print '%s: %s' % ( h, responseHeaders[h] )
         print '----------'
-    
-#import RPi.GPIO as GPIO
 
+class NoFeedback():
+    def __init__(self):
+        pass
+    def setup(self):    
+        pass
+    def destroy(self):
+        pass
+    def start(self,requestHeaders):
+        pass
+    def finish(self,responseHeaders):
+        pass
+
+#import RPi.GPIO as GPIO
 class GpioFeedback():
-    'the server could turn on an LED to indicate it was serving data'
+    'the server could turn on an LED on Raspberry PI to indicate it was serving data'
     def __init__(self,ledpin):
         print 'feedback is over GPIO pin ',ledpin
         self.ledpin=ledpin
@@ -49,18 +60,25 @@ class GpioFeedback():
         GPIO.output(self.ledpin,GPIO.HIGH)
     def finish(self,responseHeaders):
         GPIO.output(self.ledpin,GPIO.LOW)
+
+#feedbackMode= 'headless'  #See "import RPi.GPIO as GPIO" above, which must be uncommented.
+feedbackMode= 'nofeedback'
      
-isTesting=True   #See "import RPi.GPIO as GPIO" above, which must be uncommented.
-if ( not isTesting ):
+if ( feedbackMode=='headless' ):
     feedback= GpioFeedback(27)  # When this is installed on the Raspberry PI
-    HOST_NAME = '192.168.0.18' # !!!REMEMBER TO CHANGE THIS!!!
-    PORT_NUMBER = 9000 # Maybe set this to 9000.
-    HAPI_HOME= '/home/jbf/hapi/'
+    HOST_NAME = 'localhost'     # !!!REMEMBER TO CHANGE THIS!!!
+    PORT_NUMBER = 9000 
+    HAPI_HOME= 'hapi_home/' # must end in /
+elif ( feedbackMode=='nofeedback' ):
+    feedback= NoFeedback()      # No feedback is reported
+    HOST_NAME = 'localhost'     # !!!REMEMBER TO CHANGE THIS!!!
+    PORT_NUMBER = 9000 
+    HAPI_HOME= 'hapi_home/' # must end in /
 else:
     feedback= StdoutFeedback()  # When testing at the unix command line.
-    HOST_NAME = '192.168.0.205' # !!!REMEMBER TO CHANGE THIS!!!
-    PORT_NUMBER = 9000 # Maybe set this to 9000.
-    HAPI_HOME= '/home/jbf/hapi/'
+    HOST_NAME = 'localhost'     # !!!REMEMBER TO CHANGE THIS!!!
+    PORT_NUMBER = 9000 
+    HAPI_HOME= 'hapi_home/'
 
 # Configuration requirements
 # * capabilities and catalog responses must be formatted as JSON in SERVER_HOME.
@@ -326,7 +344,8 @@ class MyHandler(BaseHTTPRequestHandler):
             do_data_csv( id, timemin, timemax, parameters, s )
         elif ( path=='hapi' ):
             s.wfile.write("<html><head><title>Python HAPI Server</title></head>\n")
-            s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.</p>\n")
+            s.wfile.write("<body><p>This is a simple Python-based HAPI server, which can be run on a Raspberry PI.\n")
+            s.wfile.write("It serves some example data sets, so that one can play with it immediately.</p>\n")
             s.wfile.write("<p>Example requests:</p>\n")
             u= "hapi/catalog" 
             s.wfile.write("<a href='%s'>%s</a></br>\n" % ( u,u ) )
@@ -342,7 +361,6 @@ class MyHandler(BaseHTTPRequestHandler):
             s.wfile.write("<br><a href='hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&parameters=Time,CPUTemperature'>subset of parameters</a>\n" )
             s.wfile.write("<br><a href='hapi/data?id=cputemp&time.min=2018-01-19T00:00Z&time.max=2018-01-20T00:00Z&include=header&parameters=Time,CPUTemperature'>withInclude</a>\n"  )
             s.wfile.write("<br><a href='hapi/info?id=cputemp&include=header&parameters=Time,CPUTemperature'>infoSubset</a>"  )
-            s.wfile.write("<br><br><a href='http://192.168.0.46:2121/'>1-wire http</a>\n")
             s.wfile.write("</body></html>\n")
         else:
             for l in open( HAPI_HOME + 'error.json' ):
@@ -356,7 +374,7 @@ if __name__ == '__main__':
     feedback.setup()
 
     httpd = ThreadedHTTPServer((HOST_NAME, PORT_NUMBER), MyHandler)
-    print time.asctime(), "Server Starts - %s:%s" % (HOST_NAME, PORT_NUMBER)
+    print time.asctime(), "Server Starts - http://%s:%s/hapi" % (HOST_NAME, PORT_NUMBER)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
