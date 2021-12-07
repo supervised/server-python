@@ -112,8 +112,6 @@ def get_last_modified( id, timemin, timemax ):
              if ( filemin<=ymd and ymd<=filemax ):
                   mtime= os.path.getmtime( ffyr + '/' + file )
                   if ( lastModified==None or mtime>lastModified ): lastModified=mtime
-                  #print 'line87: ', file, lastModified, formatdate( timeval=mtime, localtime=False, usegmt=True )
-    #print 'line89: ', formatdate( timeval=lastModified, localtime=False, usegmt=True )
     return int(lastModified)  # truncate since milliseconds are not transmitted
 	
 def do_data_csv( id, timemin, timemax, parameters, s ):
@@ -152,6 +150,7 @@ def do_data_csv( id, timemin, timemax, parameters, s ):
                               s.wfile.write(rec)
 
 def do_info_macros( line ):
+    'info json templates can contain macros like "now" which should be replaced with the current time.'
     ss= line.split('"now"')
     if ( len(ss)==2 ):
        import time
@@ -261,6 +260,7 @@ class MyHandler(BaseHTTPRequestHandler):
            timemax= query['time.max'][0]
            lastModified= get_last_modified( id, timemin, timemax );
            # wget -O foo.csv --tries=1 --header="If-Modified-Since: Tue, 13 Mar 2018 21:47:02 GMT" 'http://192.168.0.205:9000/hapi/data?id=10.CF3744000800&time.min=2018-03-03T00:00Z&time.max=2018-03-12T00:00Z'
+           # check request header for If-Modified-Since
            if ( s.headers.has_key('If-Modified-Since') ):
                lms= s.headers['If-Modified-Since']
                from email.utils import parsedate_tz,formatdate
@@ -277,7 +277,6 @@ class MyHandler(BaseHTTPRequestHandler):
                    feedback.finish(responseHeaders)
                    return
                
-           # check request header for If-Modified-Since
            if ( os.path.isfile(HAPI_HOME + 'info/' + id + '.json' ) ):
                s.send_response(200)
                s.send_header("Content-type", "text/csv")
