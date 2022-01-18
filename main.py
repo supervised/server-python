@@ -147,6 +147,12 @@ def data():
     if not valid:
         return jsonify(output)
 
+    if include is not None:
+        if include == 'header':
+            info_file = open(os.path.join(HAPI_HOME, 'info', dataset + '.json'), 'r')
+            info_data = json.load(info_file)
+            info_file.close()
+
     if start is None:
         start = request.args.get('time.min')
 
@@ -169,8 +175,17 @@ def data():
         if data_file not in data_files:
             continue
 
-        full_file = pd.read_csv(data_file, index_col=None, header=0, parse_dates=[0], date_parser=dateparse, delimiter=',')
+        try:
+            full_file = pd.read_csv(data_file, index_col=None, header=0, parse_dates=[0], date_parser=dateparse, delimiter=',')
+        except ValueError:
+            continue
+
         data_out.append(full_file.to_numpy())
+
+    if len(data_out) == 0:
+        output = {"HAPI": SERVER_VERSION,
+                  "status": {"code": 1405, "message": "Bad request - time outside valid range"}}
+        return jsonify(output)
 
     data_out = np.concatenate(data_out)
 
@@ -180,10 +195,14 @@ def data():
     data_in_trange = data_out[idxs_in_range]
 
     df = pd.DataFrame(data_in_trange)
-
     output = df.to_csv(date_format='%Y-%m-%dT%H:%M:%SZ', index=False, header=False)
 
-    out = make_response(output)
+    out_header = ''
+    if include is not None:
+        if include == 'header':
+            out_header = '#' + json.dumps(info_data, indent=4).replace('\n', '\n#') + '\n'
+
+    out = make_response(out_header + output)
     out.headers["Content-type"] = "text/csv"
 
     return out
